@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Origem Willkommen
+Exec=origem-willkommen
+Icon=emblem-default-symbolic
+NoDisplay=true
+X-GNOME-Autostart-Delay=5

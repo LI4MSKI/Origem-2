@@ -1,0 +1,57 @@
+/* Origem Theme "Glas": helle, halbdurchsichtige Flächen, große Rundungen, weiche Schatten */
+@define-color accent_bg_color #0a84ff;
+@define-color accent_color #0a6fdc;
+@define-color accent_fg_color #ffffff;
+
+@define-color window_bg_color rgba(246, 247, 251, 0.86);
+@define-color view_bg_color rgba(255, 255, 255, 0.72);
+@define-color headerbar_bg_color rgba(250, 250, 253, 0.70);
+@define-color headerbar_backdrop_color rgba(250, 250, 253, 0.55);
+@define-color sidebar_bg_color rgba(238, 240, 247, 0.62);
+@define-color card_bg_color rgba(255, 255, 255, 0.66);
+@define-color popover_bg_color rgba(252, 252, 255, 0.80);
+@define-color dialog_bg_color rgba(250, 250, 253, 0.86);
+
+window, .background {
+  border-radius: 18px;
+}
+
+headerbar {
+  box-shadow: inset 0 -1px rgba(255, 255, 255, 0.6);
+}
+
+button {
+  border-radius: 12px;
+  transition: all 180ms ease-out;
+}
+
+button:not(.flat):not(.suggested-action):not(.destructive-action) {
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), inset 0 1px rgba(255, 255, 255, 0.9);
+}
+
+button:hover {
+  box-shadow: 0 4px 14px rgba(10, 132, 255, 0.18);
+}
+
+button.suggested-action {
+  background: linear-gradient(180deg, #3a9bff, #0a84ff);
+  box-shadow: 0 4px 14px rgba(10, 132, 255, 0.35);
+}
+
+entry, .card, list.boxed-list, popover > contents {
+  border-radius: 14px;
+}
+
+entry {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+switch {
+  border-radius: 999px;
+}
+
+switch slider {
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}

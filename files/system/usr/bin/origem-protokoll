@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Zeigt das Protokoll an: alles, was Claude auf diesem Computer gemacht hat.
+#   origem-protokoll          -> Fenster
+#   origem-protokoll --text   -> im Terminal
+DATEI="${XDG_DATA_HOME:-$HOME/.local/share}/origem/claude-protokoll.jsonl"
+
+if [ ! -s "$DATEI" ]; then
+    TEXT="Noch keine Einträge. Sobald Claude etwas auf deinem Computer macht, steht es hier."
+else
+    TEXT=$(tail -n 500 "$DATEI" | python3 -c '
+import json, sys
+for z in sys.stdin:
+    try:
+        d = json.loads(z)
+        print(d["zeit"] + "  [" + d["werkzeug"] + "]  " + d["was"])
+    except Exception:
+        pass
+' | tac)
+fi
+
+if [ "${1:-}" = "--text" ] || [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+    echo "$TEXT"
+else
+    echo "$TEXT" | zenity --text-info --title="Claude-Protokoll (neueste oben)" --width=900 --height=600 2>/dev/null
+fi

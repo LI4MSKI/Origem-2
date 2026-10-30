@@ -1,0 +1,86 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
+# Origem Secure – ein sicheres Linux-Betriebssystem mit Claude eingebaut.
+# Das fertige Image landet unter ghcr.io/li4mski/origem-secure
+name: origem-secure
+description: Origem Secure – sicheres Fedora-Atomic-System mit Claude, Themes und Gaming-Modus
+
+# Basis: Universal Blue Silverblue (Fedora Atomic + GNOME, mit Codecs und Auto-Updates)
+base-image: ghcr.io/ublue-os/silverblue-main
+image-version: latest
+
+modules:
+  # 1) Eigene Dateien ins System kopieren (files/system/... -> /)
+  - type: files
+    files:
+      - source: system
+        destination: /
+
+  # 2) Pakete aus Fedora
+  - type: dnf
+    install:
+      packages:
+        - nodejs            # wird für Claude Code gebraucht
+        - npm
+        - gocryptfs         # verschlüsselter Tresor-Ordner
+        - zenity            # einfache Dialoge (Theme-Auswahl, Willkommen)
+        - python3-gobject   # für den Mini-Chat
+        - gtk4
+        - libadwaita
+        - gamemode          # Gaming-Modus
+        - firewalld
+        - usbguard          # blockiert unbekannte USB-Geräte (standardmäßig aus, per Willkommen aktivierbar)
+    remove:
+      packages:
+        - openssh-server    # kein Fernzugriff von außen
+
+  # 3) NordVPN (offizielles Paket). Falls das Paket mal nicht verfügbar ist, bricht der Build nicht ab.
+  - type: dnf
+    repos:
+      files:
+        - nordvpn.repo
+      keys:
+        - https://repo.nordvpn.com/gpg/nordvpn_public.asc
+    install:
+      skip-unavailable: true
+      packages:
+        - nordvpn
+        - nordvpn-gui
+
+  # 4) Build-Skripte (Claude Code installieren, NordVPN fixen, Einstellungen anwenden)
+  - type: script
+    scripts:
+      - install-claude-code.sh
+      - fix-nordvpn.sh
+      - apply-system-settings.sh
+
+  # 5) GNOME-Erweiterungen für die Themes
+  - type: gnome-extensions
+    install:
+      - Blur my Shell     # Glas-Effekt
+      - User Themes       # eigene Shell-Themes
+      - 307               # Dash to Dock
+
+  # 6) Dienste
+  - type: systemd
+    system:
+      enabled:
+        - firewalld.service
+      disabled:
+        - sshd.service
+
+  # 7) Apps als Flatpak (laufen in einer Sandbox)
+  - type: default-flatpaks
+    configurations:
+      - scope: system
+        install:
+          - org.mozilla.firefox
+          - com.github.tchx84.Flatseal          # Rechte-Panel für Apps
+          - com.valvesoftware.Steam             # Gaming
+          - org.gnome.DejaDup                   # verschlüsselte Backups
+          - com.github.micahflee.torbrowser-launcher
+          - io.missioncenter.MissionCenter      # Taskmanager
+          - org.gnome.Loupe
+
+  # 8) Image signieren
+  - type: signing

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "DISABLE_AUTOUPDATER": "1"
+  },
+  "permissions": {
+    "ask": [
+      "Bash(rm *)",
+      "Bash(shred *)",
+      "Bash(sudo *)",
+      "Bash(pkexec *)",
+      "Bash(rpm-ostree *)",
+      "Bash(bootc *)",
+      "Bash(systemctl *)",
+      "Bash(firewall-cmd *)",
+      "Bash(dd *)",
+      "Bash(mkfs *)",
+      "Bash(chmod *)",
+      "Bash(chown *)",
+      "Bash(flatpak uninstall *)",
+      "Bash(curl *)",
+      "Bash(wget *)"
+    ],
+    "deny": [
+      "Read(~/.local/share/origem/tresor-verschluesselt/**)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/libexec/origem/claude-protokoll"
+          }
+        ]
+      }
+    ]
+  }
+}

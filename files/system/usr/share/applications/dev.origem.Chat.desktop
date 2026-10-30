@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Claude
+GenericName=Assistent
+Comment=Mit Claude chatten und den Computer steuern (Super+C)
+Exec=origem-chat
+Icon=dialog-information-symbolic
+Categories=Utility;
+Keywords=KI;AI;Assistent;Claude;Chat;
+StartupNotify=true

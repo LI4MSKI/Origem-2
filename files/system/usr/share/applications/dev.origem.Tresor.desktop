@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Tresor
+Comment=Verschlüsselten Ordner öffnen oder schließen
+Exec=origem-tresor
+Icon=security-high-symbolic
+Categories=Utility;Security;
+Keywords=Tresor;Verschlüsselung;Safe;Vault;

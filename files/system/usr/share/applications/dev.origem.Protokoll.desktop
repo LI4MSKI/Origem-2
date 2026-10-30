@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Claude-Protokoll
+Comment=Zeigt alles, was Claude auf diesem Computer gemacht hat
+Exec=origem-protokoll
+Icon=document-open-recent-symbolic
+Categories=Utility;Security;
+Keywords=Protokoll;Log;Claude;KI;

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Origem Themes
+Comment=Aussehen wechseln: Glas, Hacker und eigene Themes
+Exec=origem-theme
+Icon=preferences-desktop-appearance-symbolic
+Categories=Settings;DesktopSettings;
+Keywords=Theme;Aussehen;Design;Farben;

@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# Origem Theme-Umschalter
+#   origem-theme            -> Auswahlfenster
+#   origem-theme glas       -> Theme anwenden
+#   origem-theme --liste    -> alle Themes anzeigen
+#   origem-theme --aktuell  -> aktuelles Theme
+set -u
+
+SYSTEM_THEMES=/usr/share/origem/themes
+USER_THEMES="${XDG_DATA_HOME:-$HOME/.local/share}/origem/themes"
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/origem"
+MARKER="/* origem-theme: automatisch erzeugt */"
+
+finde_theme() {
+    if [ -f "$USER_THEMES/$1/theme.conf" ]; then echo "$USER_THEMES/$1"
+    elif [ -f "$SYSTEM_THEMES/$1/theme.conf" ]; then echo "$SYSTEM_THEMES/$1"
+    fi
+}
+
+alle_themes() {
+    for d in "$SYSTEM_THEMES"/*/ "$USER_THEMES"/*/; do
+        [ -f "$d/theme.conf" ] && basename "$d"
+    done | sort -u
+}
+
+liste() {
+    for t in $(alle_themes); do
+        (
+            NAME="$t"; BESCHREIBUNG=""
+            # shellcheck disable=SC1091
+            . "$(finde_theme "$t")/theme.conf"
+            printf '%-14s %s\n' "$t" "$BESCHREIBUNG"
+        )
+    done
+}
+
+gtk_css_setzen() {
+    local quelle="$1"
+    for v in gtk-4.0 gtk-3.0; do
+        local ziel="${XDG_CONFIG_HOME:-$HOME/.config}/$v/gtk.css"
+        mkdir -p "$(dirname "$ziel")"
+        # Eine eigene gtk.css des Nutzers nie überschreiben
+        if [ -f "$ziel" ] && ! head -n1 "$ziel" | grep -qF "$MARKER"; then
+            echo "Hinweis: $ziel ist eine eigene Datei und bleibt unverändert." >&2
+            continue
+        fi
+        if [ -n "$quelle" ] && [ -f "$quelle" ]; then
+            { echo "$MARKER"; cat "$quelle"; } > "$ziel"
+        else
+            rm -f "$ziel"
+        fi
+    done
+}
+
+anwenden() {
+    local name="$1" ordner
+    ordner=$(finde_theme "$name")
+    if [ -z "$ordner" ]; then
+        echo "Theme '$name' gibt es nicht. Verfügbar:"; liste; exit 1
+    fi
+
+    NAME="$name"; BESCHREIBUNG=""; FARBSCHEMA="dunkel"; AKZENT="blue"; GLAS="nein"; SCHRIFT=""; TERMINAL_INTRO=""
+    # shellcheck disable=SC1091
+    . "$ordner/theme.conf"
+
+    # Farbschema
+    if [ "$FARBSCHEMA" = "hell" ]; then
+        gsettings set org.gnome.desktop.interface color-scheme 'default'
+    else
+        gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+    fi
+
+    # Akzentfarbe (ab GNOME 47)
+    gsettings set org.gnome.desktop.interface accent-color "$AKZENT" 2>/dev/null || true
+
+    # Schrift
+    if [ -n "$SCHRIFT" ]; then
+        gsettings set org.gnome.desktop.interface font-name "$SCHRIFT"
+        gsettings set org.gnome.desktop.interface monospace-font-name "$SCHRIFT"
+    else
+        gsettings reset org.gnome.desktop.interface font-name
+        gsettings reset org.gnome.desktop.interface monospace-font-name
+    fi
+
+    # Glas-Effekt (Blur my Shell)
+    if [ "$GLAS" = "ja" ]; then
+        gnome-extensions enable blur-my-shell@aunetx 2>/dev/null || true
+    else
+        gnome-extensions disable blur-my-shell@aunetx 2>/dev/null || true
+    fi
+
+    # App-Stil
+    gtk_css_setzen "$ordner/gtk.css"
+
+    # Shell-Stil (Leiste, Menüs) über die Erweiterung "User Themes"
+    if [ -f "$ordner/gnome-shell/gnome-shell.css" ]; then
+        local shell_ziel="${XDG_DATA_HOME:-$HOME/.local/share}/themes/origem-$name"
+        rm -rf "$shell_ziel"; mkdir -p "$shell_ziel"
+        cp -r "$ordner/gnome-shell" "$shell_ziel/"
+        gsettings set org.gnome.shell.extensions.user-theme name "origem-$name" 2>/dev/null || true
+    else
+        gsettings reset org.gnome.shell.extensions.user-theme name 2>/dev/null || true
+    fi
+
+    # Hintergrundbild
+    for bild in "$ordner"/hintergrund.svg "$ordner"/hintergrund.png "$ordner"/hintergrund.jpg; do
+        if [ -f "$bild" ]; then
+            gsettings set org.gnome.desktop.background picture-uri "file://$bild"
+            gsettings set org.gnome.desktop.background picture-uri-dark "file://$bild"
+            gsettings set org.gnome.desktop.background picture-options 'zoom'
+            gsettings set org.gnome.desktop.screensaver picture-uri "file://$bild" 2>/dev/null || true
+            break
+        fi
+    done
+
+    mkdir -p "$CONFIG"
+    echo "$name" > "$CONFIG/theme"
+    echo "$TERMINAL_INTRO" > "$CONFIG/terminal-intro"
+
+    notify-send "Theme gewechselt" "$NAME ist jetzt aktiv. Manche Apps zeigen es erst nach einem Neustart." 2>/dev/null || true
+    echo "Theme '$NAME' angewendet."
+}
+
+auswahl_fenster() {
+    local args=()
+    for t in $(alle_themes); do
+        local beschr
+        beschr=$( NAME="$t"; BESCHREIBUNG=""; . "$(finde_theme "$t")/theme.conf"; echo "$NAME – $BESCHREIBUNG" )
+        args+=("$t" "$beschr")
+    done
+    local wahl
+    wahl=$(zenity --list --title="Origem Theme wählen" --width=520 --height=380 \
+        --text="Wähle dein Theme. Neue Themes kannst du dir von Claude bauen lassen (Super+C)." \
+        --column="Theme" --column="Beschreibung" "${args[@]}") || exit 0
+    [ -n "$wahl" ] && anwenden "$wahl"
+}
+
+case "${1:-}" in
+    "")         auswahl_fenster ;;
+    --liste)    liste ;;
+    --aktuell)  cat "$CONFIG/theme" 2>/dev/null || echo "keins" ;;
+    -h|--hilfe) sed -n '2,7p' "$0" ;;
+    *)          anwenden "$1" ;;
+esac

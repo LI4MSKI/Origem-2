@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Origem Tresor: ein verschlüsselter Ordner (gocryptfs).
+#   origem-tresor          -> öffnen/schließen (umschalten)
+#   origem-tresor auf      -> öffnen
+#   origem-tresor zu       -> schließen
+#   origem-tresor status
+set -u
+
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}/origem/tresor-verschluesselt"
+MOUNT="$HOME/Tresor"
+LEISE=0
+[ "${2:-}" = "--leise" ] && LEISE=1
+
+hinweis() { [ "$LEISE" = 1 ] || zenity --info --title="Tresor" --text="$1" --width=320 2>/dev/null || echo "$1"; }
+fehler()  { zenity --error --title="Tresor" --text="$1" --width=320 2>/dev/null || echo "FEHLER: $1" >&2; }
+ist_offen() { mountpoint -q "$MOUNT"; }
+
+einrichten() {
+    zenity --question --title="Tresor einrichten" --width=380 \
+      --text="Du hast noch keinen Tresor.\n\nDer Tresor ist ein Ordner, dessen Inhalt komplett verschlüsselt gespeichert wird. Ohne dein Passwort kommt niemand ran – auch nicht du, wenn du es vergisst!\n\nJetzt einrichten?" || exit 0
+    PW1=$(zenity --password --title="Neues Tresor-Passwort") || exit 0
+    PW2=$(zenity --password --title="Passwort wiederholen") || exit 0
+    if [ "$PW1" != "$PW2" ] || [ -z "$PW1" ]; then fehler "Die Passwörter stimmen nicht überein."; exit 1; fi
+    mkdir -p "$DATA"
+    if printf '%s' "$PW1" | gocryptfs -init -q -passfile /dev/stdin "$DATA"; then
+        hinweis "Tresor erstellt! Er liegt in deinem Home-Ordner unter 'Tresor'."
+    else
+        fehler "Tresor konnte nicht erstellt werden."; exit 1
+    fi
+}
+
+oeffnen() {
+    [ -f "$DATA/gocryptfs.conf" ] || einrichten
+    ist_offen && { hinweis "Der Tresor ist schon offen."; return; }
+    PW=$(zenity --password --title="Tresor öffnen") || exit 0
+    mkdir -p "$MOUNT"
+    if printf '%s' "$PW" | gocryptfs -q -passfile /dev/stdin "$DATA" "$MOUNT"; then
+        xdg-open "$MOUNT" >/dev/null 2>&1 &
+    else
+        fehler "Falsches Passwort oder Fehler beim Öffnen."
+    fi
+}
+
+schliessen() {
+    ist_offen || { hinweis "Der Tresor ist schon zu."; return; }
+    if fusermount3 -u "$MOUNT" 2>/dev/null || fusermount -u "$MOUNT" 2>/dev/null; then
+        hinweis "Tresor geschlossen. 🔒"
+    else
+        fusermount3 -uz "$MOUNT" 2>/dev/null || true
+        hinweis "Tresor wird geschlossen, sobald keine Datei darin mehr offen ist."
+    fi
+}
+
+case "${1:-umschalten}" in
+    auf)    oeffnen ;;
+    zu)     schliessen ;;
+    status) ist_offen && echo "offen" || echo "zu" ;;
+    *)      if ist_offen; then schliessen; else oeffnen; fi ;;
+esac

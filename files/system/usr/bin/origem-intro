@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""Hacker-Intro fürs Terminal: kurzer Matrix-Regen, dann eine Begrüßung. Jede Taste/Strg+C bricht ab."""
+import os
+import random
+import shutil
+import sys
+import time
+
+GRUEN = "\033[38;2;0;255;102m"
+HELL = "\033[38;2;220;255;230m"
+PINK = "\033[38;2;255;31;143m"
+DUNKEL = "\033[38;2;0;120;50m"
+RESET = "\033[0m"
+ZEICHEN = "01アイウエオカキクケコｱｲｳｴｵ$#@%&*<>/{}[]"
+
+
+def schreib(s: str) -> None:
+    sys.stdout.write(s)
+    sys.stdout.flush()
+
+
+def matrix(dauer: float = 1.6) -> None:
+    breite, hoehe = shutil.get_terminal_size((80, 24))
+    hoehe = max(hoehe - 1, 5)
+    spalten = [random.randint(-hoehe, 0) for _ in range(breite)]
+    schreib("\033[?25l\033[2J")
+    ende = time.time() + dauer
+    while time.time() < ende:
+        for x in range(0, breite, 2):
+            y = spalten[x]
+            if 0 <= y < hoehe:
+                schreib(f"\033[{y + 1};{x + 1}H{HELL}{random.choice(ZEICHEN)}")
+            if 0 <= y - 1 < hoehe:
+                farbe = PINK if random.random() < 0.02 else GRUEN
+                schreib(f"\033[{y};{x + 1}H{farbe}{random.choice(ZEICHEN)}")
+            if 0 <= y - 8 < hoehe:
+                schreib(f"\033[{y - 7};{x + 1}H{DUNKEL}{random.choice(ZEICHEN)}")
+            if 0 <= y - 14 < hoehe:
+                schreib(f"\033[{y - 13};{x + 1}H ")
+            spalten[x] = y + 1 if y < hoehe + 14 else random.randint(-hoehe // 2, 0)
+        time.sleep(0.035)
+    schreib(f"{RESET}\033[2J\033[H\033[?25h")
+
+
+def tippen(text: str, farbe: str = GRUEN, tempo: float = 0.012) -> None:
+    for z in text:
+        schreib(farbe + z)
+        time.sleep(tempo)
+    schreib(RESET + "\n")
+
+
+def main() -> None:
+    try:
+        matrix()
+        nutzer = os.environ.get("USER", "user")
+        tippen(f"> verbinde mit ORIGEM … ok", DUNKEL)
+        tippen(f"> firewall: AKTIV   tresor: GESICHERT   ki: BEREIT", GRUEN)
+        tippen(f"> willkommen zurück, {nutzer}_", PINK, 0.03)
+        print()
+    except KeyboardInterrupt:
+        schreib(f"{RESET}\033[2J\033[H\033[?25h")
+
+
+if __name__ == "__main__":
+    main()

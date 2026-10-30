@@ -1,0 +1,51 @@
+name: ISO bauen
+# Startet man von Hand (Actions -> "ISO bauen" -> Run workflow), nachdem das Image gebaut wurde.
+on:
+  workflow_dispatch:
+
+jobs:
+  iso:
+    name: Installations-ISO erstellen
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE_REPO: ghcr.io/${{ github.repository_owner }}
+      IMAGE_NAME: origem-secure
+      IMAGE_TAG: latest
+    steps:
+      - name: Platz schaffen
+        uses: ublue-os/remove-unwanted-software@v9
+
+      - name: Fedora-Version herausfinden
+        id: ver
+        run: |
+          OWNER=$(echo "${IMAGE_REPO}" | tr '[:upper:]' '[:lower:]')
+          echo "repo=${OWNER}" >> "$GITHUB_OUTPUT"
+          V=$(skopeo inspect "docker://${OWNER}/${IMAGE_NAME}:${IMAGE_TAG}" | jq -r '.Labels["org.opencontainers.image.version"] // empty' | cut -d. -f1)
+          [ -z "$V" ] && V=$(skopeo inspect "docker://${OWNER}/${IMAGE_NAME}:${IMAGE_TAG}" | jq -r '.Labels["ostree.linux"]' | grep -oP 'fc\K[0-9]+')
+          echo "version=${V}" >> "$GITHUB_OUTPUT"
+
+      - name: ISO bauen
+        id: build
+        uses: jasonn3/build-container-installer@main
+        with:
+          arch: x86_64
+          image_repo: ${{ steps.ver.outputs.repo }}
+          image_name: ${{ env.IMAGE_NAME }}
+          image_tag: ${{ env.IMAGE_TAG }}
+          version: ${{ steps.ver.outputs.version }}
+          variant: Silverblue
+          iso_name: origem-secure.iso
+
+      - name: ISO hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: origem-secure-iso
+          path: |
+            ${{ steps.build.outputs.iso_path }}/${{ steps.build.outputs.iso_name }}
+            ${{ steps.build.outputs.iso_path }}/${{ steps.build.outputs.iso_name }}-CHECKSUM
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

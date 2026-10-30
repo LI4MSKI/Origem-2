@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Origem Panik-Taste: Tresor zu, Internet aus, Bildschirm sperren.
+# Standard-Tastenkürzel: Super + F12
+
+LOG="${XDG_DATA_HOME:-$HOME/.local/share}/origem/panik.log"
+mkdir -p "$(dirname "$LOG")"
+echo "$(date '+%F %T') Panik-Taste gedrückt" >> "$LOG"
+
+# 1) Tresor schließen (Daten sind dann nur noch verschlüsselt auf der Platte)
+/usr/bin/origem-tresor zu --leise || true
+
+# 2) Internet trennen
+nmcli networking off 2>/dev/null || true
+command -v nordvpn >/dev/null && nordvpn disconnect >/dev/null 2>&1 || true
+
+# 3) Bildschirm sofort sperren
+loginctl lock-session 2>/dev/null || \
+  gdbus call --session --dest org.gnome.ScreenSaver --object-path /org/gnome/ScreenSaver \
+    --method org.gnome.ScreenSaver.Lock >/dev/null 2>&1 || true
+
+notify-send -u critical "Origem Panik-Modus" \
+  "Tresor geschlossen, Internet aus. Internet wieder an: Schnelleinstellungen oder 'nmcli networking on'." 2>/dev/null || true

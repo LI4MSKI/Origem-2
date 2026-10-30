@@ -1,0 +1,272 @@
+#!/usr/bin/env python3
+"""Origem Mini-Chat: kleines Claude-Fenster, das per Tastenkürzel (Super+C) aufgeht.
+
+Nutzt Claude Code im Hintergrund (`claude -p`). Aktionen, die eine Bestätigung brauchen
+(Löschen, Systemänderungen …), führt der Mini-Chat nicht aus – dafür gibt es den Knopf
+"Im Terminal weiter", wo Claude fragt, bevor es so etwas tut.
+"""
+import json
+import os
+import shutil
+import subprocess
+import sys
+import threading
+
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import Adw, Gdk, GLib, Gtk  # noqa: E402
+
+APP_ID = "dev.origem.Chat"
+CSS = b"""
+.bubble { padding: 10px 14px; border-radius: 16px; }
+.bubble.du { background: alpha(@accent_bg_color, 0.85); color: @accent_fg_color; }
+.bubble.claude { background: alpha(@card_bg_color, 0.9); }
+.bubble.werkzeug { background: transparent; opacity: 0.6; font-size: 0.85em; padding: 2px 14px; }
+.bubble.fehler { background: alpha(@error_bg_color, 0.85); color: @error_fg_color; }
+.origem-chat-fenster { background: alpha(@window_bg_color, 0.92); }
+"""
+
+
+def terminal_starten(befehl: list[str]) -> None:
+    """Öffnet ein Terminal, in dem `befehl` läuft."""
+    versuche = [
+        ["xdg-terminal-exec", *befehl],
+        ["ptyxis", "-x", " ".join(befehl)],
+        ["gnome-terminal", "--", *befehl],
+        ["kgx", "-e", " ".join(befehl)],
+    ]
+    for v in versuche:
+        if shutil.which(v[0]):
+            subprocess.Popen(v, start_new_session=True)
+            return
+
+
+class ChatFenster(Adw.ApplicationWindow):
+    def __init__(self, app: Adw.Application):
+        super().__init__(application=app, title="Claude")
+        self.set_default_size(460, 620)
+        self.add_css_class("origem-chat-fenster")
+        self.sitzung: str | None = None
+        self.laeuft = False
+        self.aktuelle_antwort: Gtk.Label | None = None
+
+        kopf = Adw.HeaderBar()
+        kopf.set_title_widget(Adw.WindowTitle(title="Claude", subtitle="Origem Assistent"))
+
+        neu = Gtk.Button(icon_name="list-add-symbolic", tooltip_text="Neues Gespräch")
+        neu.connect("clicked", self.neues_gespraech)
+        kopf.pack_start(neu)
+
+        protokoll = Gtk.Button(icon_name="document-open-recent-symbolic", tooltip_text="Protokoll: was Claude gemacht hat")
+        protokoll.connect("clicked", lambda *_: subprocess.Popen(["origem-protokoll"], start_new_session=True))
+        kopf.pack_end(protokoll)
+
+        terminal = Gtk.Button(icon_name="utilities-terminal-symbolic", tooltip_text="Im Terminal weiter (Claude kann dort mehr)")
+        terminal.connect("clicked", self.im_terminal_weiter)
+        kopf.pack_end(terminal)
+
+        self.liste = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.liste.set_margin_top(12)
+        self.liste.set_margin_bottom(12)
+        self.liste.set_margin_start(12)
+        self.liste.set_margin_end(12)
+
+        self.scroll = Gtk.ScrolledWindow(vexpand=True)
+        self.scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.scroll.set_child(self.liste)
+
+        self.eingabe = Gtk.Entry(hexpand=True, placeholder_text="Frag mich etwas oder sag mir, was ich tun soll …")
+        self.eingabe.connect("activate", self.senden)
+        self.knopf = Gtk.Button(icon_name="mail-send-symbolic", tooltip_text="Senden")
+        self.knopf.add_css_class("suggested-action")
+        self.knopf.connect("clicked", self.senden)
+        self.spinner = Gtk.Spinner()
+
+        unten = Gtk.Box(spacing=6)
+        unten.set_margin_top(6)
+        unten.set_margin_bottom(10)
+        unten.set_margin_start(10)
+        unten.set_margin_end(10)
+        unten.append(self.eingabe)
+        unten.append(self.spinner)
+        unten.append(self.knopf)
+
+        inhalt = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        inhalt.append(kopf)
+        inhalt.append(self.scroll)
+        inhalt.append(unten)
+        self.set_content(inhalt)
+
+        # Esc versteckt das Fenster
+        tasten = Gtk.EventControllerKey()
+        tasten.connect("key-pressed", self.taste)
+        self.add_controller(tasten)
+
+        if not shutil.which("claude"):
+            self.blase("Claude Code ist nicht installiert. Bitte das System aktualisieren.", "fehler")
+        else:
+            self.blase("Hallo! 👋 Ich bin Claude. Was kann ich für dich tun?\n\n"
+                       "Tipp: Für Sachen wie Dateien löschen oder Systemänderungen klick oben auf das Terminal-Symbol – "
+                       "dort frage ich vorher nach.", "claude")
+
+    # ---------- Oberfläche ----------
+    def taste(self, _ctrl, keyval, _code, _state):
+        if keyval == Gdk.KEY_Escape:
+            self.set_visible(False)
+            return True
+        return False
+
+    def blase(self, text: str, art: str) -> Gtk.Label:
+        label = Gtk.Label(label=text, wrap=True, selectable=True, xalign=0)
+        label.set_wrap_mode(2)  # Pango.WrapMode.WORD_CHAR
+        label.set_max_width_chars(48)
+        label.add_css_class("bubble")
+        label.add_css_class(art)
+        label.set_halign(Gtk.Align.END if art == "du" else Gtk.Align.START)
+        self.liste.append(label)
+        GLib.idle_add(self.nach_unten)
+        return label
+
+    def nach_unten(self):
+        adj = self.scroll.get_vadjustment()
+        adj.set_value(adj.get_upper())
+        return False
+
+    def beschaeftigt(self, ja: bool):
+        self.laeuft = ja
+        self.knopf.set_sensitive(not ja)
+        self.spinner.set_spinning(ja)
+        if not ja:
+            self.eingabe.grab_focus()
+
+    # ---------- Aktionen ----------
+    def neues_gespraech(self, *_):
+        if self.laeuft:
+            return
+        self.sitzung = None
+        child = self.liste.get_first_child()
+        while child:
+            nxt = child.get_next_sibling()
+            self.liste.remove(child)
+            child = nxt
+        self.blase("Neues Gespräch. Was gibt's?", "claude")
+
+    def im_terminal_weiter(self, *_):
+        befehl = ["claude"]
+        if self.sitzung:
+            befehl += ["--resume", self.sitzung]
+        terminal_starten(befehl)
+
+    def senden(self, *_):
+        text = self.eingabe.get_text().strip()
+        if not text or self.laeuft:
+            return
+        self.eingabe.set_text("")
+        self.blase(text, "du")
+        self.aktuelle_antwort = None
+        self.beschaeftigt(True)
+        threading.Thread(target=self.claude_fragen, args=(text,), daemon=True).start()
+
+    # ---------- Claude im Hintergrund ----------
+    def claude_fragen(self, text: str):
+        befehl = ["claude", "-p", text, "--output-format", "stream-json", "--verbose"]
+        if self.sitzung:
+            befehl += ["--resume", self.sitzung]
+        try:
+            proc = subprocess.Popen(
+                befehl, cwd=os.path.expanduser("~"),
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1,
+            )
+        except FileNotFoundError:
+            GLib.idle_add(self.fehler_anzeigen, "Claude Code wurde nicht gefunden.")
+            return
+
+        bekam_text = False
+        for zeile in proc.stdout:
+            try:
+                d = json.loads(zeile)
+            except json.JSONDecodeError:
+                continue
+            typ = d.get("type")
+            if d.get("session_id"):
+                self.sitzung = d["session_id"]
+            if typ == "assistant":
+                for teil in d.get("message", {}).get("content", []):
+                    if teil.get("type") == "text" and teil.get("text", "").strip():
+                        bekam_text = True
+                        GLib.idle_add(self.text_anhaengen, teil["text"])
+                    elif teil.get("type") == "tool_use":
+                        GLib.idle_add(self.werkzeug_anzeigen, teil.get("name", "?"), teil.get("input", {}))
+            elif typ == "result":
+                if d.get("is_error"):
+                    GLib.idle_add(self.fehler_anzeigen, d.get("result") or "Unbekannter Fehler.")
+                elif not bekam_text and d.get("result"):
+                    GLib.idle_add(self.text_anhaengen, d["result"])
+                if d.get("permission_denials"):
+                    GLib.idle_add(self.blase,
+                                  "⚠️ Für einen Schritt brauche ich deine Erlaubnis. Klick oben auf das Terminal-Symbol, "
+                                  "dort kannst du es bestätigen.", "werkzeug")
+
+        proc.wait()
+        fehlertext = proc.stderr.read().strip()
+        if proc.returncode != 0 and fehlertext:
+            hinweis = fehlertext[-600:]
+            if "login" in fehlertext.lower() or "auth" in fehlertext.lower():
+                hinweis = ("Du bist noch nicht bei Claude angemeldet. Klick oben auf das Terminal-Symbol "
+                           "und melde dich dort einmal an.")
+            GLib.idle_add(self.fehler_anzeigen, hinweis)
+        GLib.idle_add(self.beschaeftigt, False)
+
+    def text_anhaengen(self, text: str):
+        if self.aktuelle_antwort is None:
+            self.aktuelle_antwort = self.blase(text.strip(), "claude")
+        else:
+            alt = self.aktuelle_antwort.get_label()
+            self.aktuelle_antwort.set_label(alt + "\n\n" + text.strip())
+            GLib.idle_add(self.nach_unten)
+        return False
+
+    def werkzeug_anzeigen(self, name: str, eingabe: dict):
+        details = eingabe.get("command") or eingabe.get("file_path") or eingabe.get("pattern") or ""
+        self.blase(f"🔧 {name} {details}".strip()[:160], "werkzeug")
+        self.aktuelle_antwort = None
+        return False
+
+    def fehler_anzeigen(self, text: str):
+        self.blase(text, "fehler")
+        return False
+
+
+class ChatApp(Adw.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID)
+        self.fenster: ChatFenster | None = None
+
+    def do_startup(self):
+        Adw.Application.do_startup(self)
+        provider = Gtk.CssProvider()
+        provider.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        self.hold()  # läuft im Hintergrund weiter, damit das Fenster beim nächsten Tastendruck sofort da ist
+
+    def do_activate(self):
+        if self.fenster is None:
+            self.fenster = ChatFenster(self)
+            self.fenster.connect("close-request", self.verstecken)
+        # Zweiter Tastendruck schließt das Fenster wieder
+        if self.fenster.get_visible() and self.fenster.is_active():
+            self.fenster.set_visible(False)
+            return
+        self.fenster.present()
+        self.fenster.eingabe.grab_focus()
+
+    def verstecken(self, fenster):
+        fenster.set_visible(False)
+        return True
+
+
+if __name__ == "__main__":
+    sys.exit(ChatApp().run(sys.argv))

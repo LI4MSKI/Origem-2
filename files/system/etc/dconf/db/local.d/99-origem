@@ -1,0 +1,41 @@
+# Origem Secure – Standardeinstellungen für GNOME (Nutzer können alles selbst ändern)
+
+[org/gnome/settings-daemon/plugins/media-keys]
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/origem-chat/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/origem-panik/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/origem-tresor/']
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/origem-chat]
+name='Claude Mini-Chat'
+command='origem-chat'
+binding='<Super>c'
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/origem-panik]
+name='Panik-Modus'
+command='origem-panic'
+binding='<Super>F12'
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/origem-tresor]
+name='Tresor öffnen/schließen'
+command='origem-tresor'
+binding='<Super>t'
+
+[org/gnome/shell]
+enabled-extensions=['blur-my-shell@aunetx', 'user-theme@gnome-shell-extensions.gcampax.github.com', 'dash-to-dock@micxgx.gmail.com', 'appindicatorsupport@rgcjonas.gmail.com']
+favorite-apps=['org.mozilla.firefox.desktop', 'org.gnome.Nautilus.desktop', 'dev.origem.Chat.desktop', 'com.valvesoftware.Steam.desktop', 'org.gnome.Ptyxis.desktop']
+
+[org/gnome/desktop/privacy]
+remember-recent-files=false
+remove-old-trash-files=true
+remove-old-temp-files=true
+old-files-age=uint32 14
+report-technical-problems=false
+send-software-usage-stats=false
+
+[org/gnome/desktop/screensaver]
+lock-enabled=true
+lock-delay=uint32 0
+
+[org/gnome/desktop/session]
+idle-delay=uint32 300
+
+[org/gnome/desktop/notifications]
+show-in-lock-screen=false

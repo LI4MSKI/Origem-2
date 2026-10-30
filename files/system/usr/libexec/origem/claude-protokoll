@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""Claude-Code-Hook: schreibt jede Aktion von Claude ins Origem-Protokoll.
+
+Claude Code ruft dieses Skript nach jedem Werkzeug-Aufruf auf und schickt die Details als JSON über stdin.
+"""
+import json
+import os
+import sys
+from datetime import datetime
+
+MAX_LAENGE = 300
+
+
+def kurz(text: str) -> str:
+    text = " ".join(str(text).split())
+    return text if len(text) <= MAX_LAENGE else text[: MAX_LAENGE - 1] + "…"
+
+
+def beschreibung(tool: str, eingabe: dict) -> str:
+    if tool == "Bash":
+        return "Befehl: " + kurz(eingabe.get("command", ""))
+    if tool in ("Write", "Edit", "MultiEdit", "NotebookEdit"):
+        return "Datei geändert: " + kurz(eingabe.get("file_path") or eingabe.get("notebook_path", ""))
+    if tool == "Read":
+        return "Datei gelesen: " + kurz(eingabe.get("file_path", ""))
+    if tool in ("Glob", "Grep"):
+        return "Gesucht: " + kurz(eingabe.get("pattern", ""))
+    if tool in ("WebFetch", "WebSearch"):
+        return "Internet: " + kurz(eingabe.get("url") or eingabe.get("query", ""))
+    return kurz(json.dumps(eingabe, ensure_ascii=False))
+
+
+def main() -> None:
+    try:
+        daten = json.load(sys.stdin)
+    except Exception:
+        return
+    tool = daten.get("tool_name", "?")
+    eingabe = daten.get("tool_input") or {}
+    if not isinstance(eingabe, dict):
+        eingabe = {"wert": eingabe}
+
+    ordner = os.path.join(os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")), "origem")
+    os.makedirs(ordner, exist_ok=True)
+    zeile = {
+        "zeit": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "werkzeug": tool,
+        "was": beschreibung(tool, eingabe),
+        "ordner": daten.get("cwd", ""),
+    }
+    pfad = os.path.join(ordner, "claude-protokoll.jsonl")
+    with open(pfad, "a", encoding="utf-8") as f:
+        f.write(json.dumps(zeile, ensure_ascii=False) + "\n")
+    try:
+        os.chmod(pfad, 0o600)
+    except OSError:
+        pass
+
+
+if __name__ == "__main__":
+    main()
+    sys.exit(0)  # niemals Claude blockieren

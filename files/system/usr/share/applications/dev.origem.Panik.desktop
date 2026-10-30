@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Panik-Modus
+Comment=Tresor zu, Internet aus, Bildschirm sperren (Super+F12)
+Exec=origem-panic
+Icon=system-lock-screen-symbolic
+Categories=Utility;Security;
+Keywords=Panik;Sperren;Notfall;

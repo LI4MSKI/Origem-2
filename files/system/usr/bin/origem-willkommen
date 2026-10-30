@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Origem Willkommens-Assistent – läuft beim ersten Anmelden einmal.
+# Erneut starten: origem-willkommen --nochmal
+set -u
+
+FLAG="${XDG_CONFIG_HOME:-$HOME/.config}/origem/willkommen-fertig"
+[ "${1:-}" != "--nochmal" ] && [ -f "$FLAG" ] && exit 0
+mkdir -p "$(dirname "$FLAG")"
+
+frage() { zenity --question --title="Willkommen bei Origem" --width=440 --ok-label="Ja" --cancel-label="Später" --text="$1"; }
+
+zenity --info --title="Willkommen bei Origem Secure" --width=460 --text="<big><b>Willkommen! 👋</b></big>
+
+Origem Secure ist auf Sicherheit gebaut:
+• Festplatte verschlüsselt, Firewall zu, Apps in der Sandbox
+• Updates kommen automatisch und lassen sich zurücknehmen
+
+<b>Wichtige Tasten</b>
+• <b>Super + C</b>  – Claude Mini-Chat
+• <b>Super + T</b>  – Tresor öffnen/schließen
+• <b>Super + F12</b> – Panik-Modus
+
+Ein paar kurze Fragen, dann bist du startklar."
+
+# 1) Theme
+origem-theme || origem-theme glas
+
+# 2) Claude anmelden
+if frage "Willst du dich jetzt bei Claude anmelden?\n\nEs öffnet sich ein Terminal. Folge dort den Anweisungen (Anmeldung über den Browser). Danach kannst du das Terminal schließen und Claude mit <b>Super + C</b> benutzen."; then
+    for t in "xdg-terminal-exec claude" "ptyxis -x claude" "gnome-terminal -- claude"; do
+        command -v "${t%% *}" >/dev/null && { $t & break; }
+    done
+fi
+
+# 3) NordVPN
+if command -v nordvpn >/dev/null; then
+    if ! id -nG "$USER" | grep -qw nordvpn; then
+        if frage "NordVPN einrichten?\n\nDafür wird dein Benutzer zur Gruppe 'nordvpn' hinzugefügt (Admin-Passwort nötig). Danach einmal ab- und wieder anmelden und im Terminal <b>nordvpn login</b> eingeben."; then
+            pkexec usermod -aG nordvpn "$USER" && \
+              zenity --info --width=360 --title="NordVPN" --text="Fertig! Bitte einmal ab- und wieder anmelden."
+        fi
+    fi
+fi
+
+# 4) Tresor
+if frage "Willst du jetzt deinen <b>Tresor</b> einrichten?\n\nDas ist ein Ordner, in dem alles extra verschlüsselt ist – für Passwörter, Ausweise, private Bilder usw."; then
+    origem-tresor auf
+fi
+
+# 5) USB-Schutz
+if command -v usbguard >/dev/null && ! systemctl is-enabled --quiet usbguard 2>/dev/null; then
+    if frage "<b>USB-Schutz</b> einschalten?\n\nDann funktionieren nur die USB-Geräte, die jetzt eingesteckt sind. Neue Geräte (z.B. ein fremder USB-Stick) werden blockiert, bis du sie erlaubst.\n\n<i>Tipp: Steck vorher Maus, Tastatur und Controller ein.</i>"; then
+        pkexec sh -c 'usbguard generate-policy > /etc/usbguard/rules.conf && chmod 600 /etc/usbguard/rules.conf && systemctl enable --now usbguard' && \
+          zenity --info --width=320 --title="USB-Schutz" --text="USB-Schutz ist aktiv. 🔒"
+    fi
+fi
+
+touch "$FLAG"
+zenity --info --title="Fertig!" --width=360 --text="Alles bereit. Viel Spaß mit Origem! 🚀\n\nDiesen Assistenten startest du wieder mit:\n<tt>origem-willkommen --nochmal</tt>"

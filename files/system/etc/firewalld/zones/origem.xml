@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Origem: alles von außen ist zu. Ausgehende Verbindungen (Surfen, Spiele, VPN) funktionieren normal. -->
+<zone target="DROP">
+  <short>Origem</short>
+  <description>Origem Secure: Eingehende Verbindungen werden blockiert, ausgehende sind erlaubt.</description>
+  <service name="dhcpv6-client"/>
+</zone>

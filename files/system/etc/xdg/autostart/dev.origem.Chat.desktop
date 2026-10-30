@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Claude Mini-Chat (Hintergrund)
+Comment=Startet den Mini-Chat versteckt, damit er per Super+C sofort da ist
+Exec=origem-chat --gapplication-service
+NoDisplay=true
+X-GNOME-Autostart-Delay=10

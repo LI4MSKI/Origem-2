@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3840 2160" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eaf2ff"/>
+      <stop offset="0.5" stop-color="#f6eefe"/>
+      <stop offset="1" stop-color="#e6fbf7"/>
+    </linearGradient>
+    <filter id="weich" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="160"/>
+    </filter>
+  </defs>
+  <rect width="3840" height="2160" fill="url(#bg)"/>
+  <g filter="url(#weich)" opacity="0.85">
+    <circle cx="900" cy="700" r="620" fill="#7ab8ff"/>
+    <circle cx="2900" cy="560" r="560" fill="#c79bff"/>
+    <circle cx="2300" cy="1650" r="700" fill="#7fe3d0"/>
+    <circle cx="700" cy="1800" r="420" fill="#ffb3d1"/>
+  </g>
+  <g fill="#ffffff" opacity="0.35">
+    <rect x="1420" y="760" width="1000" height="640" rx="80"/>
+  </g>
+  <rect x="1420" y="760" width="1000" height="640" rx="80" fill="none" stroke="#ffffff" stroke-opacity="0.7" stroke-width="4"/>
+  <text x="1920" y="1120" text-anchor="middle" font-family="sans-serif" font-size="120" font-weight="300" fill="#3b4a6b" opacity="0.75" letter-spacing="24">ORIGEM</text>
+</svg>
