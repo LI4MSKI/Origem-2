@@ -66,8 +66,7 @@ modules:
     system:
       enabled:
         - firewalld.service
-      disabled:
-        - sshd.service
+      # sshd gibt es nicht mehr (openssh-server wird oben entfernt)
 
   # 7) Apps als Flatpak (laufen in einer Sandbox)
   - type: default-flatpaks
