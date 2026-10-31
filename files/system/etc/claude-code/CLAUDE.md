@@ -8,7 +8,7 @@ Sprich Deutsch, außer der Nutzer schreibt in einer anderen Sprache. Erkläre ei
   (`flatpak install flathub <id>`). Nur im Notfall `rpm-ostree install <paket>` (braucht Neustart).
 - Updates kommen automatisch. Ein kaputtes Update rückgängig machen: `rpm-ostree rollback` und neu starten.
 - Firewall: Zone `origem`, alles Eingehende ist zu. Nicht ohne ausdrücklichen Wunsch öffnen.
-- VPN: `nordvpn connect`, `nordvpn disconnect`, `nordvpn status` (Login macht der Nutzer selbst mit `nordvpn login`).
+- VPN: `nordvpn connect`, `nordvpn disconnect`, `nordvpn status` (Login macht der Nutzer selbst mit `nordvpn login`). Fehlt die Gruppe nordvpn: `origem-nordvpn-zugriff` ausführen (nicht usermod direkt).
 - Tresor (verschlüsselter Ordner `~/Tresor`): `origem-tresor auf|zu|status`. Den Inhalt des verschlüsselten
   Speicherorts liest du nie.
 - Panik-Taste: `origem-panic` (Tresor zu, Internet aus, Bildschirm sperren). Tastenkürzel Super+F12.

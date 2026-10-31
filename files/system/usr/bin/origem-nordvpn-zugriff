@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Fügt einen Benutzer zur Gruppe "nordvpn" hinzu.
+# Auf Atomic-Systemen steht die Gruppe oft nur in /usr/lib/group – dann scheitert usermod.
+# Deshalb wird sie zuerst nach /etc/group übernommen.
+#   sudo origem-nordvpn-zugriff [benutzer]
+set -euo pipefail
+
+NUTZER="${1:-${SUDO_USER:-$USER}}"
+
+if [ "$(id -u)" -ne 0 ]; then
+    exec pkexec "$0" "$NUTZER"
+fi
+
+if ! grep -q '^nordvpn:' /etc/group; then
+    if grep -q '^nordvpn:' /usr/lib/group 2>/dev/null; then
+        grep '^nordvpn:' /usr/lib/group >> /etc/group
+    else
+        groupadd -r nordvpn
+    fi
+fi
+
+usermod -aG nordvpn "$NUTZER"
+systemctl enable --now nordvpnd.service 2>/dev/null || true
+echo "Fertig: $NUTZER ist jetzt in der Gruppe nordvpn. Bitte einmal ab- und wieder anmelden."

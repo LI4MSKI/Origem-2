@@ -36,7 +36,7 @@ fi
 if command -v nordvpn >/dev/null; then
     if ! id -nG "$USER" | grep -qw nordvpn; then
         if frage "NordVPN einrichten?\n\nDafür wird dein Benutzer zur Gruppe 'nordvpn' hinzugefügt (Admin-Passwort nötig). Danach einmal ab- und wieder anmelden und im Terminal <b>nordvpn login</b> eingeben."; then
-            pkexec usermod -aG nordvpn "$USER" && \
+            pkexec /usr/bin/origem-nordvpn-zugriff "$USER" && \
               zenity --info --width=360 --title="NordVPN" --text="Fertig! Bitte einmal ab- und wieder anmelden."
         fi
     fi
